@@ -1,24 +1,22 @@
-extern crate time;
-extern crate serde;
-extern crate serde_json;
-extern crate sha2;
-
-use self::sha2::{Sha256, Digest};
+use serde_derive::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::fmt::Write;
+
+use chrono::prelude::*;
 
 #[derive(Debug, Clone, Serialize)]
 struct Transaction {
     sender: String,
-    receiver: String,  
+    receiver: String,
     amount: f32,
 }
 
 #[derive(Serialize, Debug)]
 pub struct Blockheader {
     timestamp: i64,
-    nonce: u32, 
-    pre_hash: String,  
-    merkle: String,  
+    nonce: u32,
+    pre_hash: String,
+    merkle: String,
     difficulty: u32,
 }
 
@@ -26,14 +24,14 @@ pub struct Blockheader {
 pub struct Block {
     header: Blockheader,
     count: u32,
-    transactions: Vec<Transaction>
+    transactions: Vec<Transaction>,
 }
 
 pub struct Chain {
     chain: Vec<Block>,
     curr_trans: Vec<Transaction>,
     difficulty: u32,
-    miner_addr: String, 
+    miner_addr: String,
     reward: f32,
 }
 
@@ -49,11 +47,10 @@ impl Chain {
 
         chain.generate_new_block();
         chain
-
     }
 
     pub fn new_transaction(&mut self, sender: String, receiver: String, amount: f32) -> bool {
-        self.curr_trans.push(Transaction{
+        self.curr_trans.push(Transaction {
             sender,
             receiver,
             amount,
@@ -65,7 +62,7 @@ impl Chain {
     pub fn last_hash(&self) -> String {
         let block = match self.chain.last() {
             Some(block) => block,
-            None => return String::from_utf8(vec![48; 64]).unwrap()
+            None => return String::from_utf8(vec![48; 64]).unwrap(),
         };
         Chain::hash(&block.header)
     }
@@ -82,23 +79,23 @@ impl Chain {
 
     pub fn generate_new_block(&mut self) -> bool {
         let header = Blockheader {
-            timestamp: time::now().to_timespec().sec,
+            timestamp: Utc::now().timestamp_millis(),
             nonce: 0,
             pre_hash: self.last_hash(),
             merkle: String::new(),
-            difficulty: self.difficulty
+            difficulty: self.difficulty,
         };
 
         let reward_trans = Transaction {
             sender: String::from("Root"),
             receiver: self.miner_addr.clone(),
-            amount: self.reward
+            amount: self.reward,
         };
 
         let mut block = Block {
             header,
             count: 0,
-            transactions: vec![]
+            transactions: vec![],
         };
 
         block.transactions.push(reward_trans);
@@ -147,7 +144,7 @@ impl Chain {
                         println!("Block hash: {}", hash);
                         break;
                     }
-                },
+                }
                 Err(_) => {
                     header.nonce += 1;
                     continue;
@@ -158,9 +155,9 @@ impl Chain {
 
     pub fn hash<T: serde::Serialize>(item: &T) -> String {
         let input = serde_json::to_string(&item).unwrap();
-        let mut hasher = Sha256::default();
-        hasher.input(input.as_bytes());
-        let res = hasher.result();
+        let mut hasher = Sha256::new();
+        hasher.update(input.as_bytes());
+        let res = hasher.finalize();
         let vec_res = res.to_vec();
 
         Chain::hex_to_string(vec_res.as_slice())
@@ -173,5 +170,4 @@ impl Chain {
         }
         s
     }
-
 }
